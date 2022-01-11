@@ -16,6 +16,13 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     ></script>
+
+    <style>
+      .post-list-scroll {
+        overflow-y: scroll;
+        max-height: 100vh;
+      }
+    </style>
   </head>
 
   <body>
@@ -28,64 +35,61 @@
         <div class="col-3">
           <form class="d-flex mb-2">
             <input
+              id="postSearch"
               class="form-control me-2"
               type="search"
               placeholder="Search"
               aria-label="Search"
             />
           </form>
-          <ul class="list-group" id="posts"></ul>
+          <ul class="list-group post-list-scroll" id="posts"></ul>
         </div>
       </div>
     </div>
 
     <script>
+      // postSearch Input içerisinde bir şey arandığında
+      $("#postSearch").on("keyup", function () {
+        const inputValue = $(this).val().toLowerCase(); // inputtaki değeri küçük harfe çevirir.
+        // Input olduğu için değer valuedan okundu JS deki value değeri
+
+        console.log("inputValue", inputValue);
+        // ınputttaki valu oku
+
+        // regex dışında diğer bir arama tekniği ise inputtan aranacak değer ile aranan değerin ikisini toLowerCase küçük harfe çevirip aramak.
+
+        // Jquery Filter ile tüm elementler içerisinde gezinip her bir elemente bir işlem yaptırabiliriz. aşağıdaki kodda posts içerisindeli li ler içersinde html element olarak dönüp her bir elemanı $(this) ile current li bulup inputValue değer ile liText eşleşme durumuna göre göster gizle yaptık.
+
+        $("#posts li").each(function (key, value) {
+          // console.log('liElement',value)
+
+          const liText = $(this).text().toLowerCase(); // li elementi içerisindeki text değerini çevirir.
+          // html element olduğundan değer text ile okundu. Javascript textContent eşit olur. <p>deneme</p>
+
+          // console.log('liText',liText);
+          // console.log('result', liText.indexOf(inputValue));
+
+          // 1. yöntem
+          // if(liText.indexOf(inputValue) == -1){
+          //     console.log('liElement', $(this))
+          //     $(this).hide();
+          // }
+          // else {
+          //     $(this).show();
+          // }
+
+          // 2. yöntem
+          $(this).toggle(liText.indexOf(inputValue) > -1);
+        });
+      });
+
       $(document).ready(function () {
         const urlParams = new URLSearchParams(window.location.search);
-        const idParam = urlParams.get("id");
+        let idParam = urlParams.get("id");
 
-        // $.ajax yerine burada ise $.get kullandık.
-        $.get(
-          `https://jsonplaceholder.typicode.com/posts/${idParam}`,
-          function (response) {
-            console.log("response", response);
-            // success olması yani işlem başarılı olması durumunda tetiklenir
-            // çok önemli jquery ile $.get $.ajax işlemleri kullanıyorsak bunlar promise olarak çalıştıklarından dolayı bizim fetch deki gibi await ile satır satır kod yazmamız mümkün değil. bu sebeple eğer birden fazla endpointten veri çekilip tek bir template doldurulacak ise iç içe $.get yaparak en içteki $.get içerisinde sayfaya verilerimizi doğru birşekilde basabiliriz.
+        console.log("idParam", idParam);
 
-            $.get(
-              `https://jsonplaceholder.typicode.com/users/${response.userId}`,
-              function (userRes) {
-                console.log("userRes", userRes);
-
-                const detailTemplate = `<div class="card">
-                <div class="card-header" >
-                    ${userRes?.name} - ${userRes?.email}
-                </div>
-                 <div class="card-body">
-                <h5 class="card-title">${response?.title}</h5>
-                <p class="card-text">${response?.body}</p>
-                <a onclick=showComments(${response.id}) class="btn btn-primary">Show Comments</a>
-            </div>
-            </div>`;
-
-                $("#detail").append(detailTemplate);
-              }
-            );
-          }
-        )
-          .done((data) => {
-            // işlem bittikten sonra tetiklenir
-            // done her zaman success den sonra çalışır.
-            console.log("data", data);
-          })
-          .fail((err) => {
-            // işlemin hatalı olması durumunda ise fail methodu tetiklenir.
-            console.log("eror", err);
-          });
-
-        // farklı bir promise kod bloğu
-        // setInterval(function(){
-        //     console.log('userId', userId);
+        // not: ui da farklı tasarımların birbirinden bağımsız bir şekilde verileri yüklemesi performans açısından önemlidir.
 
         $.get(
           "https://jsonplaceholder.typicode.com/posts",
@@ -96,8 +100,13 @@
                 // eğer parametre olarak objeyi başka bir fonksiyon içerisine göndericeksek bu durumda JSON.strinfy ile datayaı gönderiyoruz.
                 $.each(response, (key, value) => {
                   // objede olmayan bir propertinin objeye eklenmesi kodu için obj['propName'] formatını kullanalım.
-                  value["user"] = userRes.find((x) => x.id == value.userId);
-                  console.log("response-user", value.user);
+
+                  let postUser = userRes.find((x) => x.id == value.userId);
+                  console.log("postUser", postUser);
+
+                  value["user"] = postUser;
+
+                  console.log("valuee", value);
 
                   $("#posts").append(
                     `<li style='cursor:pointer' onclick='selectPost(${JSON.stringify(
@@ -107,10 +116,65 @@
                     }</li>`
                   );
                 });
+
+                // yani idParama göre sayfa açıldığında hangi makale seçili ise onu aktif olarak yan menüde göstersin.
+                $(`#post-item${idParam}`).addClass("active");
               }
             );
           }
         );
+
+        if (idParam != null) {
+          // $.ajax yerine burada ise $.get kullandık.
+          $.get(
+            `https://jsonplaceholder.typicode.com/posts/${idParam}`,
+            function (response) {
+              console.log("response", response);
+
+              // success olması yani işlem başarılı olması durumunda tetiklenir
+              // çok önemli jquery ile $.get $.ajax işlemleri kullanıyorsak bunlar promise olarak çalıştıklarından dolayı bizim fetch deki gibi await ile satır satır kod yazmamız mümkün değil. bu sebeple eğer birden fazla endpointten veri çekilip tek bir template doldurulacak ise iç içe $.get yaparak en içteki $.get içerisinde sayfaya verilerimizi doğru birşekilde basabiliriz.
+
+              $.get(
+                `https://jsonplaceholder.typicode.com/users/${response.userId}`,
+                function (userRes) {
+                  console.log("userRes", userRes);
+
+                  const detailTemplate = `<div class="card">
+                <div class="card-header" >
+                    ${userRes?.name} - ${userRes?.email}
+                </div>
+                 <div class="card-body">
+                <h5 class="card-title">${response?.title}</h5>
+                <p class="card-text">${response?.body}</p>
+               
+            </div>
+            </div>`;
+
+                  $("#detail").append(detailTemplate);
+                }
+              );
+
+              // detay bilgisi yüklenirken  commentsleride göster dedik.
+              showComments(idParam);
+            }
+          )
+            .done((data) => {
+              // işlem bittikten sonra tetiklenir
+              // done her zaman success den sonra çalışır.
+              console.log("data", data);
+            })
+            .fail((err) => {
+              // işlemin hatalı olması durumunda ise fail methodu tetiklenir.
+              console.log("eror", err);
+            });
+
+          // farklı bir promise kod bloğu
+
+          // setInterval(function(){
+          //     console.log('userId', userId);
+        } else {
+          $("#detail").append("<b>Lütfen yan menüden bir makale seçiniz!</b>");
+        }
       });
 
       const selectPost = (data) => {
@@ -129,14 +193,19 @@
                  <div class="card-body">
                 <h5 class="card-title">${data?.title}</h5>
                 <p class="card-text">${data?.body}</p>
-                <a onclick=showComments(${data.id}) class="btn btn-primary">Show Comments</a>
+               
             </div>
             </div>`;
 
         $("#detail").html(detailTemplate);
+
+        // makalenin seçimi değiştiğinde git commentleri göster.
+        showComments(data?.id);
       };
 
       const showComments = (postId) => {
+        $("#comments").empty();
+
         $.get(
           `https://jsonplaceholder.typicode.com/comments?postId=${postId}`,
           function (commentRes) {

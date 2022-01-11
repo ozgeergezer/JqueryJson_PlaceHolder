@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"
+      integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <div class="dropdown">
+          <button
+            type="button"
+            class="btn btn-primary dropdown-toggle float-end"
+            data-bs-toggle="dropdown"
+          >
+            Change Page Size
+          </button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" onclick="changePageSize(2)">2</a></li>
+            <li>
+              <a class="dropdown-item" onclick="changePageSize(5)">5</a>
+            </li>
+            <li>
+              <a class="dropdown-item" onclick="changePageSize(10)">10</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="row">
+        <!-- table içerisinde gösterelim -->
+        <div class="col" id="peoples"></div>
+      </div>
+
+      <div class="row">
+        <ul
+          class="pagination justify-content-center"
+          id="paginationContainer"
+        ></ul>
+      </div>
+    </div>
+
+    <script>
+      var activePageIndex = 1; // aktif olan sayfa indeksi
+      var paginationCount = 1; // toplam sayfa sayısı
+      var pageSize = 2;
+
+      // önceki sayfa func
+      const onPrev = async () => {
+        // bir önceki adıma gitmek için aktif sayfa sayımızın 1 den büyük olması lazım
+        if (activePageIndex > 1) {
+          activePageIndex--;
+          setActivePageClass();
+          await renderData();
+        }
+      };
+
+      // Sonraki sayfa func
+      const onNext = async () => {
+        // bir sonraki sayfaya gidebilmek için ise aktif sayfamızın paginationCount dan küçük olması lazım
+        if (activePageIndex < paginationCount) {
+          activePageIndex++;
+          setActivePageClass();
+          await renderData();
+        }
+      };
+
+      // her bir sayfa değişiminde çağırmalıyız. onPage de çağıracağız. OnPrev OnNext ve Sayfa ilk yüklendiğinde çağırdık.
+
+      const renderData = async () => {
+        let url = `https://services.odata.org/TripPinRESTierService/(S(mtvyrm2aruysvow4f3odr4ih))/People?$orderby=UserName%20asc&$skip=${
+          (activePageIndex - 1) * pageSize
+        }&$top=${pageSize}`;
+
+        let response = await fetch(url);
+        let data = await response.json();
+
+        console.log("data", data);
+
+        let tBodyTemplate = "";
+
+        $.each(data?.value, (key, value) => {
+          console.log("value", value);
+
+          tBodyTemplate += `<tr>
+                    <td>${value?.FirstName} ${value?.LastName}</td>
+                    <td>${value?.UserName}</td>
+                    <td>${value.Emails}</td>
+                </tr>`;
+        });
+
+        $("#peoples").empty();
+        $("#peoples")
+          .append(`<table class="table table-response table-bordered">
+            <thead>
+                <tr>
+                    <th>FullName</th>
+                    <th>UserName</th>
+                    <th>Emails</th>
+                </tr>
+            </thead>
+            <tbody>
+                    ${tBodyTemplate}
+            </tbody>
+            
+            </table>`);
+      };
+
+      // aktif sayfa func
+      const onPage = async (page) => {
+        activePageIndex = page; // aktif sayfayı set et
+        setActivePageClass(); // aktif sayyfanın seçili olarak görünmesini ayarla
+        await renderData();
+      };
+
+      const setActivePageClass = () => {
+        $(`#paginationContainer li`).removeClass("active"); // bütün sayfa elemanlarından aktifliği kaldır.
+        // bir öncekini değeri activePageIndex den aldım. çünkü daha activePageIndex güncellemedim. bundan dolayı son seçili sayfayı buradaki indeksten yakalamış olduk.
+        $(`#page-item${activePageIndex}`).addClass("active"); // şuan aktif olan sayfaya active class ekle
+      };
+
+      // dropdowndan sayfa değiştiğinde kaçarlı olarak sayfalama yapacağımızı belirledik.
+      const changePageSize = async (size) => {
+        pageSize = size;
+        await getPageCount(pageSize);
+        onPage(1); // sayfayı resetle
+        // sayfada gösterilecek olan kayıt sayısı değişince kaldığımız son sayfa kayıt sayısı olarak doğru olamayacağından burada ilk sayfaya geri dönüyoruz.
+      };
+
+      // jquery içerisinde async bir method çalıştırdık
+      $(document).ready(async function () {
+        await getPageCount(); // toplam kaç adet kayıt olacağını bulup, buna göre sayfada kaç adet sayfalama olacağını dinamik olarak hesapladık.
+        await renderData();
+      });
+
+      // default her sayfada 2 kayıt gösterecek şekilde çalışacak
+      const getPageCount = async (pageSize = 2) => {
+        // sayfalama elementini temizle
+        $("#paginationContainer").empty();
+
+        try {
+          let response = await fetch(
+            "https://services.odata.org/TripPinRESTierService/(S(mtvyrm2aruysvow4f3odr4ih))/People/$count"
+          );
+          let pageCount = await response.json(); // 20 kayıt çekelim
+
+          // toplam sayfadaki kayıt sayım eğer küsüratlı bir değer ise doğru sayfa sayısını bulmak için yukarı yuvarladık. 44 / 5 gibi son sayfada 4 kayıt göstermek lazım.
+          paginationCount = Math.ceil(Number(pageCount) / Number(pageSize));
+
+          console.log("sayfa sayısı", paginationCount);
+          // onPage sayfalama yapma function için kullandık.
+          // onPage tetiklendiğinde activePageIndex değiştireceğiz.
+
+          $("#paginationContainer").append(
+            `<li class="page-item"><a class="page-link" onclick=onPrev()>Previous</a></li>`
+          );
+
+          for (let index = 1; index <= paginationCount; index++) {
+            $("#paginationContainer").append(
+              `<li id="page-item${index}" class="page-item ${
+                index == activePageIndex ? "active" : ""
+              } ? "><a class="page-link" onclick=onPage(${index})>${index}</a></li>`
+            );
+          }
+
+          $("#paginationContainer").append(
+            `<li class="page-item"><a class="page-link" onclick=onNext()>Next</a></li>`
+          );
+        } catch (error) {}
+      };
+    </script>
+  </body>
+</html>
